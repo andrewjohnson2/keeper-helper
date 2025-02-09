@@ -23,6 +23,7 @@ const data = reactive({
     { id: crypto.randomUUID(), placeholder: true }
   ],
   moving: [],
+  minorLeaguers: [],
 
   index: undefined,
 });
@@ -41,6 +42,11 @@ onMounted(async () => {
 
   const unrankedPlayers = [];
   data.team.forEach(p => {
+    if (p.isMinorLeagueEligible) {
+      data.minorLeaguers.push(p);
+      return;
+    }
+
     if (p.contractDetails.rank === undefined) {
       unrankedPlayers.push(p);
     } else {
@@ -97,7 +103,6 @@ function dragOver(e) {
   data.ranking[data.index] = data.ranking[parseInt(newIndex)];
   data.ranking[newIndex] = copy;
 
-
   data.moving[data.ranking[data.index].id] = new Date();
   data.moving[data.ranking[newIndex].id] = new Date();
 
@@ -139,49 +144,31 @@ function draggable(index) {
 
 <template>
   <Page>
-
-
-
-
-
     <div class="flex justify-center items-center m-1">
       <div class="text-2xl">
         Player Ranking
       </div>
     </div>
 
-
-
-
-
     <div class="flex justify-center items-center m-2">
-
-
-
       <div class="text-xs">Rank your players 1-10. Players retain their ranking throughout the lifetime of their
         contract.
       </div>
     </div>
 
-
-
-
-
-
-
+    <div class="p-2" v-if="data.minorLeaguers.length > 0">Major Leaguers</div>
     <div class="bg-slate-200 border rounded-lg px-2">
-
       <TransitionGroup name="list" tag="div">
 
-        <div v-for="(player, index) in data.ranking" v-bind:key="player.id" 
-        
-        :class="'border-slate-400 ' + (index !== 0 && index !== data.index && index !== data.index  + 1  ? 'border-t ' : '')">
+        <div v-for="(player, index) in data.ranking" v-bind:key="player.id"
+          :class="'border-slate-400 ' + (index !== 0 && index !== data.index && index !== data.index + 1 ? 'border-t ' : '')">
 
-          <div :id="index"  :ondragstart="(e) => dragStart(index)" :ondragover="(e) => dragOver(e)" :ondragenter="(e) => dragOver(e)"
-            :draggable="draggable(index)" :ondrop="(e) => drop(e)" :ondragend="(e) => drop(e)" :class="'py-3 mx-2 flex justify-between items-center ' +
-          (!draggable(index) ? 'opacity-30 rounded-lg ' : '') +
-          (index === data.index ? 'opacity-0' : '')
-          ">
+          <div :id="index" :ondragstart="(e) => dragStart(index)" :ondragover="(e) => dragOver(e)"
+            :ondragenter="(e) => dragOver(e)" :draggable="draggable(index)" :ondrop="(e) => drop(e)"
+            :ondragend="(e) => drop(e)" :class="'py-3 mx-2 flex justify-between items-center ' +
+              (!draggable(index) ? 'opacity-30 rounded-lg ' : '') +
+              (index === data.index ? 'opacity-0' : '')
+              ">
             <div>
               <div class="text-xl">
                 {{ player.name || 'Open Slot' }}
@@ -194,16 +181,18 @@ function draggable(index) {
               {{ index + 1 }}
             </div>
           </div>
-
         </div>
-
-
-
       </TransitionGroup>
     </div>
 
-    <Transition name="button">
+    <div class="p-2 mt-4" v-if="data.minorLeaguers.length > 0">Minor Leaguers</div>
+    <div v-if="data.minorLeaguers.length > 0" class="bg-slate-200 border rounded-lg px-2 mb-3">
+      <div v-for="p in data.minorLeaguers" class="py-3 mx-2">
+        {{ p.name }}
+      </div>
+    </div>
 
+    <Transition name="button">
       <div class="fixed bottom-8 w-full transition" v-if="data.index === undefined">
         <div class="flex gap-2 justify-center">
           <button @click="done" :class="'text-black text-lg bg-blue-200 rounded-full py-2 px-5 shadow-md'">Done</button>

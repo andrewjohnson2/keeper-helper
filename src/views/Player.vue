@@ -11,12 +11,12 @@ function selectPlayer(p1) {
 </script>
 
 <template>
-  <div @click="selectPlayer(player)" 
+  <div @click="selectPlayer(player)" style="z-index: 9;"
   :class="'mx-2 gap-2 items-center justify-between flex flex-nowrap truncate ' +
 
-  (border ? 'border-2 rounded-lg m-2 py-1 px-3 ' : 'py-3 ') +
+  (border ? 'border-2 rounded-lg m-2 py-1 px-3 ' : 'py-1 ') +
   (state === 'PENDING' ? 'cursor-pointer ' : '') +
-    (player.selected ? 'border-slate-400 ' : ' ') +
+    (player.selected ? 'border-slate-400 bg-slate-200 ' : ' ') +
     (state === 'EXPIRED' ? 'opacity-50' : 'hover:opacity-90')">
     <div class="truncate">
       <div class="text-s text-gray-400 flex items-center gap-x-1 truncate">

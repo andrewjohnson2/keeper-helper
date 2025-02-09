@@ -51,7 +51,7 @@ onMounted(async () => {
                             {{ player.contractDetails.rank }}
                         </div>
                         <div>
-                            {{ player.contract }}
+                            {{ player.isMinorLeagueEligible ? "N/A" : player.contract }}
                         </div>
                     </div>
 

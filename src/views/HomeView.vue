@@ -9,7 +9,7 @@ const router = useRouter();
 
 
 const allTeams = computed(() => {
-  return getAllTeams();
+  return getAllTeams().sort((t1, t2) => t1.name.toLowerCase() > t2.name.toLowerCase());
 })
 
 function loadTeam(team) {
@@ -24,7 +24,7 @@ function loadTeam(team) {
 <template>
   <Page>
     <div class="flex justify-center my-3">
-      <div class="text-2xl">Select Team</div>
+      <div class="text-2xl">Select Your Team</div>
     </div>
     <div class="divide-y bg-white rounded-lg px-3">
       <div v-for="team in allTeams"

@@ -45,8 +45,8 @@ export class DraftPick {
 }
 // export const TEAM_IDS: Number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
-export const TEAMS_DEFINITION_FILE = "./src/data/teams.json";
-export const DRAFT_DEFINITION_FILE = "../src/data/drafts/2024.csv";
+export const TEAMS_DEFINITION_FILE = "data/teams.json";
+export const DRAFT_DEFINITION_FILE = "data/drafts/2024.csv";
 
 export function init(): void {
   const reader = new FileReader();
@@ -76,7 +76,7 @@ export function init(): void {
     .then((teams) => {
       teams.forEach((team) => {
         const contractsPromise = fetch(
-          "../src/data/contracts/" + team.id + ".csv"
+          "data/contracts/" + team.id + ".csv"
         )
           .then((response) => response.text())
           .then((ranks) => {
@@ -85,20 +85,23 @@ export function init(): void {
 
               return {
                 playerId: values[0],
-                rank: parseInt(values[2]),
-                draftPick: values[3],
+                rank: parseInt(values[3]),
+                draftPick: values[4],
               };
             });
 
             return team;
           });
 
-        const playersPromise = fetch("../src/data/teams/" + team.id + ".csv")
+        const playersPromise = fetch("data/teams/" + team.id + ".csv")
           .then((response) => response.text())
           .then((t) => {
             const players = t.split("\n").map((player) => {
               const attributes = getCommaSeparatedValues(player);
               if (attributes.length > 8) {
+                if (attributes[0] === 'ID') {
+                  return undefined;
+                }
                 return {
                   id: attributes[0].replaceAll('"', ""),
                   position: attributes[1].replaceAll('"', ""),
@@ -107,7 +110,8 @@ export function init(): void {
                   age: attributes[6].replaceAll('"', ""),
                   contract: attributes[7].replaceAll('"', ""),
                   selected: false,
-                  isNewSelection: false
+                  isNewSelection: false,
+                  isMinorLeagueEligible: attributes[5].replaceAll('"', "") === "Min"
                 };
             
               }
@@ -131,7 +135,21 @@ export function init(): void {
               } else {
                 draftPromise.then((ignored) => {
                   const pick = store.draft.find((pick) => pick.playerId === p.id);
-                  p.draftPick = pick;
+
+                  if (p.isMinorLeagueEligible && !pick) {
+                    p.isMinorLeagueEligible = false;
+                  }
+
+                  if (pick) {
+                    p.draftPick = pick;
+                  } else {
+                    p.draftPick = {
+                      round: 26,
+                      pick: 12,
+                      year: 2024,
+                      playerId: p.id
+                    }
+                  }
                 });
               }
             });

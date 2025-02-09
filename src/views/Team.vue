@@ -62,24 +62,33 @@ const teamName = computed(() => {
 })
 
 const keptPlayers = computed(() => {
-  return team.value.filter(p => p.selected).length;
+  return team.value.filter(p => p.selected)
+    .filter(p => !p.isMinorLeagueEligible)
+    .length;
 })
 
 const hitters = computed(() => {
   return team.value.filter(p => p.selected)
     .filter(p => !["SP", "RP", "P"].includes(p.position))
+    .filter(p => !p.isMinorLeagueEligible)
     .length;
 })
 
 const pitchers = computed(() => {
   return team.value.filter(p => p.selected)
     .filter(p => ["SP", "RP", "P"].includes(p.position))
+    .filter(p => !p.isMinorLeagueEligible)
+    .length;
+})
+
+const minorLeagues = computed(() => {
+  return team.value.filter(p => p.selected)
+    .filter(p => p.isMinorLeagueEligible)
     .length;
 })
 
 const tooManyPlayers = computed(() => {
-  return team.value.filter(p => p.selected).length > 10 ||
-    hitters.value > 7 || pitchers.value > 7;
+  return keptPlayers.value > 10 || hitters.value > 7 || pitchers.value > 7;
 });
 
 function back() {
@@ -143,63 +152,43 @@ const YEAR = "2024";
 
 <template>
   <Page>
-
-    <div class="fixed w-full flex justify-end gap-x-2" v-if="isSelecting">
-      <div class="px-3">
-        <div
-          :class="(keptPlayers > 10 ? 'bg-red-400' : 'bg-slate-200') + ' text-sm border border-slate-400 rounded-lg mt-1 mb-2 py-1 px-3'">
-          {{ keptPlayers }} Players
-        </div>
-
-        <div
-          :class="(hitters > 7 ? 'bg-red-400' : 'bg-slate-200') + ' text-sm border border-slate-400 rounded-lg my-2 py-1 px-3'">
-          {{ hitters }} Hitters
-        </div>
-
-        <div
-          :class="(pitchers > 7 ? 'bg-red-400' : 'bg-slate-200') + ' text-sm border border-slate-400 rounded-lg my-2 py-1 px-3'">
-          {{ pitchers }} Pitchers
-        </div>
-      </div>
-    </div>
-
     <div class="mx-3 my-2">
       <div class="flex items-center mb-2">
         <div class="text-2xl">{{ isSelecting ? 'Select Keepers' : 'Assign Contracts' }}</div>
       </div>
-
-
-
     </div>
 
-
     <TransitionGroup name="list">
-
-
-
       <!-- <div class="mx-3">Pending Extension</div> -->
-      <Player :border="true"
+      <Player :border="true" style="z-index: 9;"
         v-for="player in team.filter((p) => (p.selected && p.isNewSelection) || (p.contract === '1st' && isSelecting))"
         :key="player.id" :state="isSelecting ? 'PENDING' : 'CONTRACT'" :is-selecting=isSelecting :player="player">
         <div class="flex items-center">
 
           <div class="py-1" v-if="!isSelecting">
-            <div class="flex items-center mb-1">
-              <input checked id="default-radio-1" type="radio" value="2025" :name="player.id" v-model="player.contract"
-                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-              <label for="default-radio-1"
-                class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2025</label>
+            <div v-if="player.isMinorLeagueEligible">
+              Minor Leaguer (Indefinitely)
             </div>
-            <div class="flex items-center">
-              <input id="default-radio-2" type="radio" value="2027" :name="player.id" v-model="player.contract"
-                class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-              <label for="default-radio-2"
-                class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2027</label>
-            </div>
+            <template v-else>
+              <div class="flex items-center mb-1">
+                <input checked id="default-radio-1" type="radio" value="2025" :name="player.id"
+                  v-model="player.contract"
+                  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                <label for="default-radio-1"
+                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2025</label>
+              </div>
+              <div class="flex items-center">
+                <input id="default-radio-2" type="radio" value="2027" :name="player.id" v-model="player.contract"
+                  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                <label for="default-radio-2"
+                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2027</label>
+              </div>
+            </template>
+
           </div>
           <div class="ml-2" v-if="isSelecting">
 
-            {{ getCostForPlayer(player) }}
+            {{ player.isMinorLeagueEligible ? 'Minor League (No Cost)' : getCostForPlayer(player) }}
 
           </div>
 
@@ -227,13 +216,37 @@ const YEAR = "2024";
         </div>
       </Player>
     </TransitionGroup>
+    <div style="z-index: 10;">
+
+      <div class="fixed gap-x-2 z-100" v-if="isSelecting" style="right: 5px; top: 8px;">
+        <div class="">
+          <div
+            :class="(keptPlayers > 10 ? 'bg-red-400' : 'bg-slate-200') + ' text-sm border border-slate-400 rounded-lg mt-1 mb-2 py-1 px-3'">
+            {{ keptPlayers }} Players
+          </div>
+
+          <div
+            :class="(hitters > 7 ? 'bg-red-400' : 'bg-slate-200') + ' text-sm border border-slate-400 rounded-lg my-2 py-1 px-3'">
+            {{ hitters }} Hitters
+          </div>
+
+          <div
+            :class="(pitchers > 7 ? 'bg-red-400' : 'bg-slate-200') + ' text-sm border border-slate-400 rounded-lg my-2 py-1 px-3'">
+            {{ pitchers }} Pitchers
+          </div>
+
+          <div
+            :class="(pitchers > 7 ? 'bg-red-400' : 'bg-slate-200') + ' text-sm border border-slate-400 rounded-lg my-2 py-1 px-3'">
+            {{ minorLeagues }} Minors
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="fixed bottom-4 w-full">
       <div class="flex justify-center flex-wrap items-center mx-4">
 
         <div>
-
-
-
           <div class="flex gap-3 justify-center place-self-center">
             <button @click="back" :class="'text-black text-lg bg-white rounded-full py-2 px-8 shadow-lg'">Back</button>
             <button @click="next" :class="'text-black text-lg bg-blue-200 rounded-full py-2 px-8 shadow-lg ' +
