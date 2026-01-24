@@ -27,13 +27,13 @@ interface Team {
 
 interface TeamStore {
   teams: Team[];
-  draft: DraftPick[];
+  drafts: DraftPick[][];
   currentTeamId: Number | undefined;
 }
 
 const store: TeamStore = reactive({
   teams: [],
-  draft: [],
+  drafts: [[]],
   currentTeamId: undefined
 });
 
@@ -42,20 +42,42 @@ export class DraftPick {
   pick: string;
   year: string;
   playerId: string;
+  team: string;
 }
 // export const TEAM_IDS: Number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 export const TEAMS_DEFINITION_FILE = "data/teams.json";
-export const DRAFT_DEFINITION_FILE = "data/drafts/2024.csv";
+export const DRAFT_2024_DEFINITION_FILE = "data/drafts/2024.csv";
+export const DRAFT_DEFINITION_FILE = "data/drafts/2025.csv";
 
 export function init(): void {
   const reader = new FileReader();
+
+  const draft2024Promise = fetch(DRAFT_2024_DEFINITION_FILE)
+  .then((response) => response.text())
+  .then((response) => response.split("\n"))
+  .then((picks) => {
+    store.drafts.push({picks: picks
+      .map((pick) => {
+        const values = getCommaSeparatedValues(pick);
+
+        const draftPick = new DraftPick();
+        draftPick.playerId = values[0];
+        draftPick.pick = values[2];
+        draftPick.round = values[1];
+        draftPick.year = "2024";
+        draftPick.team = values[7];
+
+        return draftPick;
+      })
+      .filter((p) => p.playerId !== "*"), year:2024});
+  });
 
   const draftPromise = fetch(DRAFT_DEFINITION_FILE)
     .then((response) => response.text())
     .then((response) => response.split("\n"))
     .then((picks) => {
-      store.draft = picks
+      store.drafts.push({picks: picks
         .map((pick) => {
           const values = getCommaSeparatedValues(pick);
 
@@ -63,11 +85,14 @@ export function init(): void {
           draftPick.playerId = values[0];
           draftPick.pick = values[2];
           draftPick.round = values[1];
-          draftPick.year = "2024";
+          draftPick.year = "2025";
+          draftPick.team = values[7];
 
           return draftPick;
         })
-        .filter((p) => p.playerId !== "*");
+        .filter((p) => p.playerId !== "*"), year: 2025});
+
+
     });
 
   fetch(TEAMS_DEFINITION_FILE)
@@ -85,8 +110,12 @@ export function init(): void {
 
               return {
                 playerId: values[0],
+                name: values[2],
                 rank: parseInt(values[3]),
                 draftPick: values[4],
+                year: values[5],
+                isMinorLeagueKeeper: values[5] === 'Min',
+                wasDropped: values.length >= 7 && values[6] === 'true'
               };
             });
 
@@ -108,7 +137,7 @@ export function init(): void {
                   name: attributes[2].replaceAll('"', ""),
                   team: attributes[3].replaceAll('"', ""),
                   age: attributes[6].replaceAll('"', ""),
-                  contract: attributes[7].replaceAll('"', ""),
+                  // contract: attributes[7].replaceAll('"', ""),
                   selected: false,
                   isNewSelection: false,
                   isMinorLeagueEligible: attributes[5].replaceAll('"', "") === "Min"
@@ -122,31 +151,48 @@ export function init(): void {
 
         Promise.all([contractsPromise, playersPromise]).then(
           (contractsAndPlayers) => {
-            console.log(contractsAndPlayers);
+            console.log(contractsAndPlayers, team);
 
             const contracts = contractsAndPlayers[0];
             const players = contractsAndPlayers[1];
 
+            // contracts.filter(c => c.wasDropped)
+            //   .forEach(c => {
+            //     players.push({
+            //       name: c.name,
+            //       isCuttingPlayer: true,
+            //       contractDetails: c
+            //     })
+            //   })
+
             players.forEach((p) => {
               const contract = contracts.find((c) => c.playerId === p.id);
               if (contract !== undefined) {
+                p.contract = contract.year;
                 p.contractDetails = contract;
-                p.selected = true;
+                p.selected = contract.year != '2025' && !contract.wasDropped;
+                p.isMinorLeagueEligible = contract.isMinorLeagueKeeper;
+                p.isCuttingPlayer = contract.wasDropped
+                p.wasDropped = contract.wasDropped
               } else {
-                draftPromise.then((ignored) => {
-                  const pick = store.draft.find((pick) => pick.playerId === p.id);
+                p.contract = "1st"
+                Promise.all([draftPromise, draft2024Promise]).then((ignored) => {
+                  const pick = store.drafts.find(d => d.year === 2025).picks.find((pick) => pick.playerId === p.id);
 
                   if (p.isMinorLeagueEligible && !pick) {
-                    p.isMinorLeagueEligible = false;
+                     const allYearsPicks = store.drafts.map(d1 => d1.picks).find((pick) => pick.playerId === p.id);
+                    p.isMinorLeagueEligible = allYearsPicks !== undefined;
                   }
 
-                  if (pick) {
+                  console.log(pick?.team, team.name);
+
+                  if (pick && pick.team === team.name) {
                     p.draftPick = pick;
                   } else {
                     p.draftPick = {
                       round: 26,
                       pick: 12,
-                      year: 2024,
+                      year: 2025,
                       playerId: p.id
                     }
                   }

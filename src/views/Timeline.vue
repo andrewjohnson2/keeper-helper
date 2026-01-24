@@ -11,7 +11,7 @@ const players = computed(() => {
     return (getCurrentTeam()?.players || []).filter(p => p.selected);
 })
 
-const YEARS = [2025, 2026, 2027]
+const YEARS = [2026, 2027, 2028]
 </script>
 <template>
     <div v-for="player in players" class="flex grow justify-between">

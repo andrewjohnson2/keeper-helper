@@ -9,6 +9,7 @@ const route = useRoute();
 
 const data = reactive({
   team: [],
+  showInfo: false,
 
   ranking: [
     { id: crypto.randomUUID(), placeholder: true },
@@ -20,7 +21,7 @@ const data = reactive({
     { id: crypto.randomUUID(), placeholder: true },
     { id: crypto.randomUUID(), placeholder: true },
     { id: crypto.randomUUID(), placeholder: true },
-    { id: crypto.randomUUID(), placeholder: true }
+    { id: crypto.randomUUID(), placeholder: true },
   ],
   moving: [],
   minorLeaguers: [],
@@ -37,11 +38,11 @@ onMounted(async () => {
     return;
   }
 
-  data.team = getCurrentTeam()?.players
-    .filter(p => p.selected)
+  data.team = getCurrentTeam()?.players.filter((p) => p.selected);
 
   const unrankedPlayers = [];
-  data.team.forEach(p => {
+  const duplicateRank = [];
+  data.team.forEach((p) => {
     if (p.isMinorLeagueEligible) {
       data.minorLeaguers.push(p);
       return;
@@ -50,27 +51,61 @@ onMounted(async () => {
     if (p.contractDetails.rank === undefined) {
       unrankedPlayers.push(p);
     } else {
-      data.ranking[p.contractDetails.rank - 1] = p;
+      if (data.ranking[p.contractDetails.rank - 1].placeholder) {
+        data.ranking[p.contractDetails.rank - 1] = p;
+      } else {
+        duplicateRank.push(p);
+      }
     }
   });
 
-  unrankedPlayers.forEach(urp => {
 
+  duplicateRank.forEach((dp) => {
+    let i = dp.contractDetails.rank - 1;
+
+    let foundSpot = false;
+    while (!foundSpot) {
+      if (i >= 0 && data.ranking[i].placeholder) {
+        data.ranking[i] = dp;
+        foundSpot = true;
+      }
+      i -= 1;
+
+      if (i < 0) {
+        console.error("cannot find spot for duplicate player");
+        break;
+      }
+    }
+
+    let j = dp.contractDetails.rank + 1;
+    while (!foundSpot) {
+      if (j < data.ranking.length && data.ranking[i].placeholder) {
+        data.ranking[j] = dp;
+        data.ranking[j].overrideRank = dp.contractDetails.rank
+        break;
+      }
+      j += 1;
+
+      if (j >= data.ranking.length) {
+        console.error("cannot find spot for duplicate player");
+        break;
+      }
+    }
+
+
+  })
+
+  unrankedPlayers.forEach((urp) => {
     for (let i = 0; i < data.ranking.length; ++i) {
       if (data.ranking[i].placeholder) {
-        console.log("adding unranked player", i)
+        console.log("adding unranked player", i);
         urp.contractDetails.rank = i + 1;
         data.ranking[i] = urp;
         return;
       }
     }
-    console.log("cannot find spot for unranked player")
-  })
-
-
-
-
-
+    console.log("cannot find spot for unranked player");
+  });
 });
 
 function dragStart(index) {
@@ -82,22 +117,26 @@ function dragOver(e) {
   e.preventDefault();
   const newIndex = e.target.id;
 
-  if (String(newIndex) === String(data.index) ||
-    newIndex === ""
-  ) {
+  if (String(newIndex) === String(data.index) || newIndex === "") {
     return;
   } else {
     console.log("continuing", newIndex, data.index);
   }
 
   if (!draggable(newIndex)) {
+    console.log("not draggable", newIndex);
     return;
   }
 
-  if (hasMovedRecently(data.ranking[data.index].id) && hasMovedRecently(data.ranking[newIndex].id)) {
-    console.log("old index has moved too recently")
+  if (
+    hasMovedRecently(data.ranking[data.index].id) &&
+    hasMovedRecently(data.ranking[newIndex].id)
+  ) {
+    console.log("old index has moved too recently");
     return;
   }
+
+  console.log(newIndex, data.index);
 
   const copy = Object.assign({}, data.ranking[data.index]);
   data.ranking[data.index] = data.ranking[parseInt(newIndex)];
@@ -108,13 +147,17 @@ function dragOver(e) {
 
   data.index = parseInt(newIndex);
 
+  // setTimeout(() => {
+  //   data.index = parseInt(newIndex);
+  // }, 200)
+
   console.log(data.ranking);
 }
 
 function hasMovedRecently(id) {
   if (id in data.moving) {
     const movedDate = data.moving[id];
-    return (new Date().getTime() - movedDate.getTime()) < 500;
+    return new Date().getTime() - movedDate.getTime() < 500;
   }
   return false;
 }
@@ -130,11 +173,11 @@ function done() {
     if (r.contractDetails) {
       r.contractDetails.rank = i + 1;
     }
-  })
+  });
 
   router.push({
-    name: "done"
-  })
+    name: "done",
+  });
 }
 
 function draggable(index) {
@@ -144,63 +187,110 @@ function draggable(index) {
 
 <template>
   <Page>
-    <div class="flex justify-center items-center m-1">
-      <div class="text-2xl">
-        Player Ranking
+    <div class="sticky top-0">
+      <div class="bg-white px-4 pt-2 border-b border-slate-200 pb-2">
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="text-2xl">Rank Players</div>
+            <div class="text-gray-700 text-xs">
+              Players retain their ranking throughout the lifetime of their
+              contract.
+            </div>
+          </div>
+          <div class="cursor-pointer" @click="data.showInfo = !data.showInfo">
+            ⓘ
+          </div>
+        </div>
+        <div v-if="data.showInfo" class="mt-3 text-sm text-gray-500">
+
+          <div>
+            Keepers are ranked 1-10. If a keeper is dropped during their contract, a draft pick penalty is assessed based on their ranking.
+          </div>
+          <div>
+            Rank 1-2: 3rd round
+          </div>
+          <div>
+            Rank 3-4: 5th round
+          </div>
+          <div>
+            Rank 5-6: 7th round
+          </div>
+          <div>
+            Rank 7-10: 10th round
+          </div>
+
+          <div class="mt-2">Each year remaining on their contract increases the round by 1</div>
+        </div>
       </div>
     </div>
 
-    <div class="flex justify-center items-center m-2">
-      <div class="text-xs">Rank your players 1-10. Players retain their ranking throughout the lifetime of their
-        contract.
-      </div>
+    <div class="px-2 pt-2" v-if="data.minorLeaguers.length > 0">
+      Major League Keepers
     </div>
-
-    <div class="p-2" v-if="data.minorLeaguers.length > 0">Major Leaguers</div>
-    <div class="bg-slate-200 border rounded-lg px-2">
+    <div class="mx-2 pt-1">
       <TransitionGroup name="list" tag="div">
-
-        <div v-for="(player, index) in data.ranking" v-bind:key="player.id"
-          :class="'border-slate-400 ' + (index !== 0 && index !== data.index && index !== data.index + 1 ? 'border-t ' : '')">
-
-          <div :id="index" :ondragstart="(e) => dragStart(index)" :ondragover="(e) => dragOver(e)"
-            :ondragenter="(e) => dragOver(e)" :draggable="draggable(index)" :ondrop="(e) => drop(e)"
-            :ondragend="(e) => drop(e)" :class="'py-3 mx-2 flex justify-between items-center ' +
-              (!draggable(index) ? 'opacity-30 rounded-lg ' : '') +
-              (index === data.index ? 'opacity-0' : '')
-              ">
+        <div
+          v-for="(player, index) in data.ranking"
+          v-bind:key="player.id"
+          :class="'py-1 ' + (index === data.index ? 'opacity-0' : '')"
+          :id="index"
+          :ondragstart="(e) => dragStart(index)"
+          :ondragover="(e) => dragOver(e)"
+          :ondragenter="(e) => dragOver(e)"
+          :draggable="draggable(index)"
+          :ondrop="(e) => drop(e)"
+          :ondragend="(e) => drop(e)"
+        >
+          <div
+            :class="
+              'px-2 py-1 flex justify-between bg-white rounded-lg items-center ' +
+              (!draggable(index) ? 'opacity-30 rounded-lg ' : '')
+            "
+          >
             <div>
-              <div class="text-xl">
-                {{ player.name || 'Open Slot' }}
+              <div class="">
+                {{ player.name || "Open Slot" }}
               </div>
               <div class="text-xs text-gray-400">
                 {{ player.contract }}
               </div>
             </div>
             <div>
-              {{ index + 1 }}
+              {{ player.overrideRank ? player.overrideRank : index + 1 }}
             </div>
           </div>
         </div>
       </TransitionGroup>
     </div>
 
-    <div class="p-2 mt-4" v-if="data.minorLeaguers.length > 0">Minor Leaguers</div>
-    <div v-if="data.minorLeaguers.length > 0" class="bg-slate-200 border rounded-lg px-2 mb-3">
-      <div v-for="p in data.minorLeaguers" class="py-3 mx-2">
+    <div class="p-2 mt-3" v-if="data.minorLeaguers.length > 0">
+      Minor League Keepers
+    </div>
+    <div v-if="data.minorLeaguers.length > 0" class="px-2 mb-3">
+      <div
+        v-for="p in data.minorLeaguers"
+        class="px-3 py-1 bg-white rounded-lg"
+      >
         {{ p.name }}
       </div>
     </div>
 
     <Transition name="button">
-      <div class="fixed bottom-8 w-full transition" v-if="data.index === undefined">
+      <div
+        class="fixed bottom-8 w-full transition"
+        v-if="data.index === undefined"
+      >
         <div class="flex gap-2 justify-center">
-          <button @click="done" :class="'text-black text-lg bg-blue-200 rounded-full py-2 px-5 shadow-md'">Done</button>
+          <button
+            @click="done"
+            :class="'text-black text-lg bg-blue-200 rounded-full py-2 px-5 shadow-md'"
+          >
+            Done
+          </button>
         </div>
       </div>
     </Transition>
   </Page>
-
 </template>
 
 <style>
@@ -213,15 +303,8 @@ function draggable(index) {
   transition: all 0.5s ease;
 }
 
-
 .list-enter-from,
 .list-leave-to {
   opacity: 0;
-
 }
-
-
-/* .list-leave-active {
-  position: absolute;
-} */
 </style>

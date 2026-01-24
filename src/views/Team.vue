@@ -25,6 +25,11 @@ function getCostForPlayer(player) {
     return "";
   }
 
+  console.log(player);
+  if (player.contractDetails?.isMinorLeagueKeeper) {
+    return "Free";
+  }
+
   let cost;
   if (player.contractDetails && player.contract !== '1st' && player.contract !== YEAR) {
     player.selected = true;
@@ -34,22 +39,18 @@ function getCostForPlayer(player) {
     cost = parseInt(player.draftPick.round) - 1;
   }
 
-
   let costAsString;
   if (cost === 1) {
-    costAsString = "1st";
+    costAsString = "1st Round";
   } else if (cost === 2) {
-    costAsString = "2nd";
+    costAsString = "2nd Round";
   } else if (cost <= 0) {
     costAsString = "N/A";
   } else {
-    costAsString = cost + "th";
+    costAsString = cost + "th Round";
   }
 
-
   player.costAsString = costAsString;
-
-
   return costAsString;
 }
 
@@ -125,7 +126,7 @@ function next() {
             rank: undefined,
             draftPick: p.draftPick.round
           };
-          p.contract = "2025";
+          p.contract = "2026";
           p.isNewSelection = true;
         }
       })
@@ -147,57 +148,87 @@ function next() {
 }
 
 
-const YEAR = "2024";
+const YEAR = "2025";
 </script>
 
 <template>
   <Page>
-    <div class="mx-3 my-2">
-      <div class="flex items-center mb-2">
-        <div class="text-2xl">{{ isSelecting ? 'Select Keepers' : 'Assign Contracts' }}</div>
+    <div class="flex items-center pb-2 bg-white px-4 pt-2">
+      <div class="text-2xl">{{ isSelecting ? 'Select Keepers' : 'Assign Contracts' }}</div>
+    </div>
+
+    <div class="bg-white sticky top-0 px-4 border-b border-slate-200">
+      <div class="sticky top-0 flex flex-nowrap justify-between bg-white py-2 border-slate-200 border-t"
+        v-if="isSelecting">
+        <div :class="keptPlayers > 10 ? 'text-red-500' : ''">
+          <div class="text-xs text-slate-500">
+            Players
+          </div>
+          {{ keptPlayers }}
+        </div>
+
+        <div :class="hitters > 7 ? 'text-red-600' : ''">
+          <div class="text-xs text-slate-500">
+            Hitters
+          </div>
+          {{ hitters }}
+        </div>
+
+        <div :class="pitchers > 7 ? 'text-red-600' : ''">
+          <div class="text-xs text-slate-500">
+            Pitchers
+          </div>
+          {{ pitchers }}
+        </div>
+
+        <div :class="minorLeagues > 2 ? 'text-red-600' : ''">
+          <div class="text-xs text-slate-500">
+            Minor Leaguers
+          </div>
+          {{ minorLeagues }}
+        </div>
       </div>
     </div>
+
 
     <TransitionGroup name="list">
       <!-- <div class="mx-3">Pending Extension</div> -->
       <Player :border="true" style="z-index: 9;"
-        v-for="player in team.filter((p) => (p.selected && p.isNewSelection) || (p.contract === '1st' && isSelecting))"
+        v-for="player in team.filter((p) => (p.selected && p.isNewSelection) || (p.contract === '1st' && isSelecting))
+                            .filter(p => !p.isCuttingPlayer)"
         :key="player.id" :state="isSelecting ? 'PENDING' : 'CONTRACT'" :is-selecting=isSelecting :player="player">
         <div class="flex items-center">
-
           <div class="py-1" v-if="!isSelecting">
             <div v-if="player.isMinorLeagueEligible">
               Minor Leaguer (Indefinitely)
             </div>
             <template v-else>
               <div class="flex items-center mb-1">
-                <input checked id="default-radio-1" type="radio" value="2025" :name="player.id"
+                <input checked :id="'default-radio-1-' + player.id" type="radio" value="2026" :name="player.id"
                   v-model="player.contract"
                   class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                <label for="default-radio-1"
-                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2025</label>
+                <label :for="'default-radio-1-' + player.id"
+                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2026</label>
               </div>
               <div class="flex items-center">
-                <input id="default-radio-2" type="radio" value="2027" :name="player.id" v-model="player.contract"
+                <input :id="'default-radio-2-' + player.id" type="radio" value="2028" :name="player.id"
+                  v-model="player.contract"
                   class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                <label for="default-radio-2"
-                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2027</label>
+                <label :for="'default-radio-2-' + player.id"
+                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2028</label>
               </div>
             </template>
 
           </div>
           <div class="ml-2" v-if="isSelecting">
-
             {{ player.isMinorLeagueEligible ? 'Minor League (No Cost)' : getCostForPlayer(player) }}
-
           </div>
-
         </div>
-
       </Player>
 
       <!-- <div class="mx-3">Players Under Contract</div> -->
-      <Player v-for="player in team.filter((p) => p.contract !== '1st' && p.contract !== '2024' && !p.isNewSelection)"
+      <Player v-for="player in team.filter((p) => p.contract !== '1st' && p.contract !== YEAR && !p.isNewSelection)
+                                    .filter(p => !p.isCuttingPlayer)"
         :key="player.id" :player="player" state="CONTRACT" :border="true" :is-selecting=isSelecting>
         <div>
           {{ player.contract }}
@@ -208,15 +239,25 @@ const YEAR = "2024";
         </div>
       </Player>
 
+      <Player state="DROPPED"
+      v-for="player in team.filter(p => p.isCuttingPlayer)"
+      :player="player" :border="true" :is-selecting="isSelecting">
+          <div>
+            {{ player.wasDropped ? 'Dropped' : 'Released' }}
+          </div>
+      </Player>
+
       <!-- <div class="mx-3">Expired Contracts</div> -->
-      <Player v-for="player in team.filter((p) => p.contract === '2024').filter(p => isSelecting)" :key="player.id"
+      <Player v-for="player in team.filter((p) => p.contract === YEAR)
+                                    .filter(p => isSelecting)
+                                    .filter(p => !p.isCuttingPlayer)" :key="player.id"
         :player="player" state="EXPIRED" :border="true">
         <div>
           Expired
         </div>
       </Player>
     </TransitionGroup>
-    <div style="z-index: 10;">
+    <!-- <div style="z-index: 10;">
 
       <div class="fixed gap-x-2 z-100" v-if="isSelecting" style="right: 5px; top: 8px;">
         <div class="">
@@ -241,7 +282,7 @@ const YEAR = "2024";
           </div>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <div class="fixed bottom-4 w-full">
       <div class="flex justify-center flex-wrap items-center mx-4">
