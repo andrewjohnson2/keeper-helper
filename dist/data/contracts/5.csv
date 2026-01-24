@@ -1,4 +1,10 @@
-"*02w7p*","3B","Alex Bregman",2,0
-"*04qk8*","SS","CJ Abrams",5,11
-"*04pbp*","CI","Christopher Morel",6,21
-"*04ai4*","MI","Nolan Gorman",8,14
+"*02w7p*","3B","Alex Bregman",2,0,2026
+"*04qk8*","SS","CJ Abrams",5,11,2026
+"*04pbp*","CI","Christopher Morel",6,21,2026
+"*04ai4*","MI","Nolan Gorman",8,14,2026
+"*03nuc*","SP","Luis Castillo",1,0,2025
+"*03djk*","P","Tanner Houck",3,1,2025,true
+"*041wv*","SP","Michael King",4,6,2025
+"*05ucd*","RP","Mason Miller",9,9,2027
+"*03i81*","SP","Reynaldo Lopez",7,22,2027,true
+"*04e2u*","OF","Brent Rooker",10,10,2025
