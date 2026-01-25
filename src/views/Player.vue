@@ -39,11 +39,6 @@ function penalty() {
     <div class="truncate">
       <div class="text-xs text-gray-400 flex items-center gap-x-1 truncate pt-1">
         {{ player.team }} ({{ player.position }})
-
-        <template v-if="state === 'CONTRACT' && isSelecting && !player.isMinorLeagueEligible">
-          <div>Release by forfeiting {{ penalty() }} pick</div>
-        </template>
-
       </div>
       <div class="flex gap-2 items-center text-lg truncate text-ellipsis">
         {{ player.name }} <span v-if="state === 'DROPPED' && !player.isMinorLeagueEligible">(Forfeit {{ penalty() }} pick)</span>

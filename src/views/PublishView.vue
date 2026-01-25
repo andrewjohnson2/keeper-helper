@@ -5,7 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import Player from "./Player.vue";
 import Page from "./Page.vue";
 import {
-    formatRound,
+  formatRound,
   getPenaltyForDroppingPlayer,
   getPenaltyForDroppingPlayerUnformatted,
 } from "@/utils";
@@ -86,7 +86,7 @@ function getCostForPlayer(p) {
 }
 
 function _formatRound(round) {
-    return formatRound(round);
+  return formatRound(round);
 }
 
 // function getCostForPlayer(p) {
@@ -192,15 +192,18 @@ function areAnyPicksDuplicates(picks) {
               <div>
                 {{
                   player.isMinorLeagueEligible
-                    ? "N/A"
-                    : "Through: " + player.contract
+                    ? ""
+                    : "Cost: " +
+                      formatRound(
+                        data.costs.find((c) => c.id === player.id)?.cost
+                      )
                 }}
               </div>
               <div>
                 {{
                   player.isMinorLeagueEligible
-                    ? ""
-                    : "Cost: " + formatRound(data.costs.find(c => c.id === player.id)?.cost)
+                    ? "N/A"
+                    : "Signed Through: " + player.contract
                 }}
               </div>
             </div>
@@ -237,7 +240,10 @@ function areAnyPicksDuplicates(picks) {
                   {{
                     player.isMinorLeagueEligible
                       ? ""
-                      : "Cost: " + formatRound(data.costs.find(c => c.id === player.id)?.cost)
+                      : "Cost: " +
+                        formatRound(
+                          data.costs.find((c) => c.id === player.id)?.cost
+                        )
                   }}
                 </div>
               </div>
@@ -262,9 +268,7 @@ function areAnyPicksDuplicates(picks) {
             </div>
             <div class="">
               <div class="text-right">
-                <div>
-                  Cost: {{ penalty(player) }}
-                </div>
+                <div>Cost: {{ penalty(player) }}</div>
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Player from "@/views/Player.vue";
 import Page from "./Page.vue";
+import { getPenaltyForDroppingPlayer } from "@/utils";
 
 const route = useRoute();
 const router = useRouter();
@@ -18,7 +19,7 @@ onMounted(() => {
     });
     return;
   }
-})
+});
 
 function getCostForPlayer(player) {
   if (player === undefined) {
@@ -31,7 +32,11 @@ function getCostForPlayer(player) {
   }
 
   let cost;
-  if (player.contractDetails && player.contract !== '1st' && player.contract !== YEAR) {
+  if (
+    player.contractDetails &&
+    player.contract !== "1st" &&
+    player.contract !== YEAR
+  ) {
     player.selected = true;
 
     cost = parseInt(player.contractDetails.draftPick) - 1;
@@ -56,37 +61,37 @@ function getCostForPlayer(player) {
 
 const team = computed(() => {
   return getCurrentTeam()?.players || [];
-})
+});
 
 const teamName = computed(() => {
   return getCurrentTeam()?.name;
-})
+});
 
 const keptPlayers = computed(() => {
-  return team.value.filter(p => p.selected)
-    .filter(p => !p.isMinorLeagueEligible)
-    .length;
-})
+  return team.value
+    .filter((p) => p.selected)
+    .filter((p) => !p.isMinorLeagueEligible).length;
+});
 
 const hitters = computed(() => {
-  return team.value.filter(p => p.selected)
-    .filter(p => !["SP", "RP", "P"].includes(p.position))
-    .filter(p => !p.isMinorLeagueEligible)
-    .length;
-})
+  return team.value
+    .filter((p) => p.selected)
+    .filter((p) => !["SP", "RP", "P"].includes(p.position))
+    .filter((p) => !p.isMinorLeagueEligible).length;
+});
 
 const pitchers = computed(() => {
-  return team.value.filter(p => p.selected)
-    .filter(p => ["SP", "RP", "P"].includes(p.position))
-    .filter(p => !p.isMinorLeagueEligible)
-    .length;
-})
+  return team.value
+    .filter((p) => p.selected)
+    .filter((p) => ["SP", "RP", "P"].includes(p.position))
+    .filter((p) => !p.isMinorLeagueEligible).length;
+});
 
 const minorLeagues = computed(() => {
-  return team.value.filter(p => p.selected)
-    .filter(p => p.isMinorLeagueEligible)
-    .length;
-})
+  return team.value
+    .filter((p) => p.selected)
+    .filter((p) => p.isMinorLeagueEligible).length;
+});
 
 const tooManyPlayers = computed(() => {
   return keptPlayers.value > 10 || hitters.value > 7 || pitchers.value > 7;
@@ -95,21 +100,19 @@ const tooManyPlayers = computed(() => {
 function back() {
   if (isSelecting.value) {
     router.push({
-      name: "home"
+      name: "home",
     });
   } else {
-    team.value
-      .forEach(p => {
-        if (p.isNewSelection) {
-          p.contractDetails = undefined;
-          p.contract = "1st";
-          p.isNewSelection = undefined;
-        }
-      })
+    team.value.forEach((p) => {
+      if (p.isNewSelection) {
+        p.contractDetails = undefined;
+        p.contract = "1st";
+        p.isNewSelection = undefined;
+      }
+    });
 
     isSelecting.value = true;
   }
-
 }
 
 function next() {
@@ -118,18 +121,16 @@ function next() {
       return;
     }
 
-
-    team.value
-      .forEach(p => {
-        if (p.selected && p.contract === "1st") {
-          p.contractDetails = {
-            rank: undefined,
-            draftPick: p.draftPick.round
-          };
-          p.contract = "2026";
-          p.isNewSelection = true;
-        }
-      })
+    team.value.forEach((p) => {
+      if (p.selected && p.contract === "1st") {
+        p.contractDetails = {
+          rank: undefined,
+          draftPick: p.draftPick.round,
+        };
+        p.contract = "2026";
+        p.isNewSelection = true;
+      }
+    });
 
     // router.push({
     //   name: "timeline",
@@ -137,16 +138,15 @@ function next() {
     // });
 
     isSelecting.value = false;
-
   } else {
-
     router.push({
-      name: "ranking"
+      name: "ranking",
     });
-
   }
 }
-
+function penalty(player) {
+  return getPenaltyForDroppingPlayer(player);
+}
 
 const YEAR = "2025";
 </script>
@@ -154,49 +154,59 @@ const YEAR = "2025";
 <template>
   <Page>
     <div class="flex items-center pb-2 bg-white px-4 pt-2">
-      <div class="text-2xl">{{ isSelecting ? 'Select Keepers' : 'Assign Contracts' }}</div>
+      <div class="text-2xl">
+      <div>{{ isSelecting ? "Select Keepers" : "Assign Contracts" }}</div>
+        <div v-if="isSelecting" class="text-gray-700 text-xs">
+          Keep 5 players with no draft pick cost and 5 additional players based
+          on when they were originally drafted
+        </div>
+      </div>
     </div>
 
     <div class="bg-white sticky top-0 px-4 border-b border-slate-200">
-      <div class="sticky top-0 flex flex-nowrap justify-between bg-white py-2 border-slate-200 border-t"
-        v-if="isSelecting">
+      <div
+        class="sticky top-0 flex flex-nowrap justify-between bg-white py-2 border-slate-200 border-t"
+        v-if="isSelecting"
+      >
         <div :class="keptPlayers > 10 ? 'text-red-500' : ''">
-          <div class="text-xs text-slate-500">
-            Players
-          </div>
+          <div class="text-xs text-slate-500">Players</div>
           {{ keptPlayers }}
         </div>
 
         <div :class="hitters > 7 ? 'text-red-600' : ''">
-          <div class="text-xs text-slate-500">
-            Hitters
-          </div>
+          <div class="text-xs text-slate-500">Hitters</div>
           {{ hitters }}
         </div>
 
         <div :class="pitchers > 7 ? 'text-red-600' : ''">
-          <div class="text-xs text-slate-500">
-            Pitchers
-          </div>
+          <div class="text-xs text-slate-500">Pitchers</div>
           {{ pitchers }}
         </div>
 
         <div :class="minorLeagues > 2 ? 'text-red-600' : ''">
-          <div class="text-xs text-slate-500">
-            Minor Leaguers
-          </div>
+          <div class="text-xs text-slate-500">Minor Leaguers</div>
           {{ minorLeagues }}
         </div>
       </div>
     </div>
 
-
     <TransitionGroup name="list">
       <!-- <div class="mx-3">Pending Extension</div> -->
-      <Player :border="true" style="z-index: 9;"
-        v-for="player in team.filter((p) => (p.selected && p.isNewSelection) || (p.contract === '1st' && isSelecting))
-                            .filter(p => !p.isCuttingPlayer)"
-        :key="player.id" :state="isSelecting ? 'PENDING' : 'CONTRACT'" :is-selecting=isSelecting :player="player">
+      <Player
+        :border="true"
+        style="z-index: 9"
+        v-for="player in team
+          .filter(
+            (p) =>
+              (p.selected && p.isNewSelection) ||
+              (p.contract === '1st' && isSelecting)
+          )
+          .filter((p) => !p.isCuttingPlayer)"
+        :key="player.id"
+        :state="isSelecting ? 'PENDING' : 'CONTRACT'"
+        :is-selecting="isSelecting"
+        :player="player"
+      >
         <div class="flex items-center">
           <div class="py-1" v-if="!isSelecting">
             <div v-if="player.isMinorLeagueEligible">
@@ -204,57 +214,113 @@ const YEAR = "2025";
             </div>
             <template v-else>
               <div class="flex items-center mb-1">
-                <input checked :id="'default-radio-1-' + player.id" type="radio" value="2026" :name="player.id"
+                <input
+                  checked
+                  :id="'default-radio-1-' + player.id"
+                  type="radio"
+                  value="2026"
+                  :name="player.id"
                   v-model="player.contract"
-                  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                <label :for="'default-radio-1-' + player.id"
-                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2026</label>
+                  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label
+                  :for="'default-radio-1-' + player.id"
+                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+                  >2026</label
+                >
               </div>
               <div class="flex items-center">
-                <input :id="'default-radio-2-' + player.id" type="radio" value="2028" :name="player.id"
+                <input
+                  :id="'default-radio-2-' + player.id"
+                  type="radio"
+                  value="2028"
+                  :name="player.id"
                   v-model="player.contract"
-                  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                <label :for="'default-radio-2-' + player.id"
-                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">2028</label>
+                  class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label
+                  :for="'default-radio-2-' + player.id"
+                  class="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300"
+                  >2028</label
+                >
               </div>
             </template>
-
           </div>
           <div class="ml-2" v-if="isSelecting">
-            {{ player.isMinorLeagueEligible ? 'Minor League (No Cost)' : getCostForPlayer(player) }}
+            {{
+              player.isMinorLeagueEligible
+                ? "Minor League (No Cost)"
+                : "Cost: " + getCostForPlayer(player)
+            }}
           </div>
         </div>
       </Player>
 
       <!-- <div class="mx-3">Players Under Contract</div> -->
-      <Player v-for="player in team.filter((p) => p.contract !== '1st' && p.contract !== YEAR && !p.isNewSelection)
-                                    .filter(p => !p.isCuttingPlayer)"
-        :key="player.id" :player="player" state="CONTRACT" :border="true" :is-selecting=isSelecting>
-        <div>
-          {{ player.contract }}
+      <Player
+        v-for="player in team
+          .filter(
+            (p) =>
+              p.contract !== '1st' && p.contract !== YEAR && !p.isNewSelection
+          )
+          .filter((p) => !p.isCuttingPlayer)"
+        :key="player.id"
+        :player="player"
+        state="CONTRACT"
+        :border="true"
+        :is-selecting="isSelecting"
+      >
+        <div class="flex flex-nowrap items-center gap-x-2">
+          <div
+            v-if="isSelecting"
+            class="p-1 cursor-pointer hover:opacity-50 px-3 text-white rounded-full bg-red-600"
+          >
+            Release player for {{ penalty(player) }} pick
+          </div>
 
-          <template v-if="isSelecting">
-            ({{ getCostForPlayer(player) }})
-          </template>
+          <div>
+            <div v-if="isSelecting">Cost: {{ getCostForPlayer(player) }}</div>
+            <div>Signed Through: {{ player.contract }}</div>
+          </div>
+
+
         </div>
       </Player>
 
-      <Player state="DROPPED"
-      v-for="player in team.filter(p => p.isCuttingPlayer)"
-      :player="player" :border="true" :is-selecting="isSelecting">
-          <div>
-            {{ player.wasDropped ? 'Dropped' : 'Released' }}
+      <Player
+        state="DROPPED"
+        v-for="player in team.filter((p) => p.isCuttingPlayer)"
+        :player="player"
+        :border="true"
+        :is-selecting="isSelecting"
+      >
+        <div class="flex flex-nowrap items-center gap-x-2">
+          <div
+            v-if="isSelecting && !player.wasDropped"
+            class="p-1 cursor-pointer hover:opacity-50 px-3 text-white rounded-full bg-green-600"
+          >
+            Undo Release
           </div>
+
+          <div>
+            {{ player.wasDropped ? "Dropped" : "Released" }}
+          </div>
+
+        </div>
       </Player>
 
       <!-- <div class="mx-3">Expired Contracts</div> -->
-      <Player v-for="player in team.filter((p) => p.contract === YEAR)
-                                    .filter(p => isSelecting)
-                                    .filter(p => !p.isCuttingPlayer)" :key="player.id"
-        :player="player" state="EXPIRED" :border="true">
-        <div>
-          Expired
-        </div>
+      <Player
+        v-for="player in team
+          .filter((p) => p.contract === YEAR)
+          .filter((p) => isSelecting)
+          .filter((p) => !p.isCuttingPlayer)"
+        :key="player.id"
+        :player="player"
+        state="EXPIRED"
+        :border="true"
+      >
+        <div>Expired</div>
       </Player>
     </TransitionGroup>
     <!-- <div style="z-index: 10;">
@@ -286,17 +352,26 @@ const YEAR = "2025";
 
     <div class="fixed bottom-4 w-full">
       <div class="flex justify-center flex-wrap items-center mx-4">
-
         <div>
           <div class="flex gap-3 justify-center place-self-center">
-            <button @click="back" :class="'text-black text-lg bg-white rounded-full py-2 px-8 shadow-lg'">Back</button>
-            <button @click="next" :class="'text-black text-lg bg-blue-200 rounded-full py-2 px-8 shadow-lg ' +
-              (tooManyPlayers ? 'opacity-50' : 'cursor-pointer')">Next</button>
+            <button
+              @click="back"
+              :class="'text-black text-lg bg-white rounded-full py-2 px-8 shadow-lg'"
+            >
+              Back
+            </button>
+            <button
+              @click="next"
+              :class="
+                'text-black text-lg bg-blue-200 rounded-full py-2 px-8 shadow-lg ' +
+                (tooManyPlayers ? 'opacity-50' : 'cursor-pointer')
+              "
+            >
+              Next
+            </button>
           </div>
         </div>
-
       </div>
-
     </div>
   </Page>
 </template>

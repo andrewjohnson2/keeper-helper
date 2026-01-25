@@ -29,12 +29,19 @@ interface TeamStore {
   teams: Team[];
   drafts: DraftPick[][];
   currentTeamId: Number | undefined;
+  transactions: Transaction[];
+}
+
+interface Transaction {
+  name: String;
+  type: String;
 }
 
 const store: TeamStore = reactive({
   teams: [],
   drafts: [[]],
-  currentTeamId: undefined
+  currentTeamId: undefined,
+  transactions: [],
 });
 
 export class DraftPick {
@@ -49,64 +56,94 @@ export class DraftPick {
 export const TEAMS_DEFINITION_FILE = "data/teams.json";
 export const DRAFT_2024_DEFINITION_FILE = "data/drafts/2024.csv";
 export const DRAFT_DEFINITION_FILE = "data/drafts/2025.csv";
+export const TRANSACTIONS_FILE = "data/transactions/2025.csv";
 
 export function init(): void {
   const reader = new FileReader();
 
   const draft2024Promise = fetch(DRAFT_2024_DEFINITION_FILE)
-  .then((response) => response.text())
-  .then((response) => response.split("\n"))
-  .then((picks) => {
-    store.drafts.push({picks: picks
-      .map((pick) => {
-        const values = getCommaSeparatedValues(pick);
+    .then((response) => response.text())
+    .then((response) => response.split("\n"))
+    .then((picks) => {
+      store.drafts.push({
+        picks: picks
+          .map((pick) => {
+            const values = getCommaSeparatedValues(pick);
 
-        const draftPick = new DraftPick();
-        draftPick.playerId = values[0];
-        draftPick.pick = values[2];
-        draftPick.round = values[1];
-        draftPick.year = "2024";
-        draftPick.team = values[7];
+            const draftPick = new DraftPick();
+            draftPick.playerId = values[0];
+            draftPick.pick = values[2];
+            draftPick.round = values[1];
+            draftPick.year = "2024";
+            draftPick.team = values[7];
 
-        return draftPick;
-      })
-      .filter((p) => p.playerId !== "*"), year:2024});
-  });
+            return draftPick;
+          })
+          .filter((p) => p.playerId && p.playerId !== "*"),
+        year: 2024,
+      });
+    });
 
   const draftPromise = fetch(DRAFT_DEFINITION_FILE)
     .then((response) => response.text())
     .then((response) => response.split("\n"))
     .then((picks) => {
-      store.drafts.push({picks: picks
-        .map((pick) => {
-          const values = getCommaSeparatedValues(pick);
+      store.drafts.push({
+        picks: picks
+          .map((pick) => {
+            const values = getCommaSeparatedValues(pick);
 
-          const draftPick = new DraftPick();
-          draftPick.playerId = values[0];
-          draftPick.pick = values[2];
-          draftPick.round = values[1];
-          draftPick.year = "2025";
-          draftPick.team = values[7];
+            const draftPick = new DraftPick();
+            draftPick.playerId = values[0];
+            draftPick.pick = values[2];
+            draftPick.round = values[1];
+            draftPick.year = "2025";
+            draftPick.team = values[7];
 
-          return draftPick;
-        })
-        .filter((p) => p.playerId !== "*"), year: 2025});
+            return draftPick;
+          })
+          .filter((p) => p.playerId && p.playerId !== "*"),
+        year: 2025,
+      });
+    });
 
-
+  const transactionsPromise = fetch(TRANSACTIONS_FILE)
+    .then((response) => response.text())
+    .then((response) => response.split("\n"))
+    .then((transactions) => {
+      transactions.forEach((transaction) => {
+        const values = getCommaSeparatedValues(transaction);
+        store.transactions.push({
+          name: values[0],
+          type: values[3],
+        });
+      });
     });
 
   fetch(TEAMS_DEFINITION_FILE)
     .then((response) => response.json())
     .then((response) => response.teams)
-    .then((teams) => {
+    .then(async (teams) => {
+      await transactionsPromise;
+
       teams.forEach((team) => {
-        const contractsPromise = fetch(
-          "data/contracts/" + team.id + ".csv"
-        )
+        const contractsPromise = fetch("data/contracts/" + team.id + ".csv")
           .then((response) => response.text())
           .then((ranks) => {
             const team = ranks.split("\n").map((rank) => {
               const values = getCommaSeparatedValues(rank);
+
+              const wasDroppedFromTransactions = store.transactions.find(t => {
+                return t.name === values[2] && t.type === 'Drop'
+              }) !== undefined;
+
+              const wasDroppedManual = values.length >= 7 && values[6] === "true";
+
+              if (wasDroppedFromTransactions !== wasDroppedManual) {
+                console.error("found mismatch", values);
+              } else if (wasDroppedFromTransactions) {
+                console.log("found match", values)
+              }
 
               return {
                 playerId: values[0],
@@ -114,8 +151,8 @@ export function init(): void {
                 rank: parseInt(values[3]),
                 draftPick: values[4],
                 year: values[5],
-                isMinorLeagueKeeper: values[5] === 'Min',
-                wasDropped: values.length >= 7 && values[6] === 'true'
+                isMinorLeagueKeeper: values[5] === "Min",
+                wasDropped: values.length >= 7 && values[6] === "true",
               };
             });
 
@@ -128,7 +165,7 @@ export function init(): void {
             const players = t.split("\n").map((player) => {
               const attributes = getCommaSeparatedValues(player);
               if (attributes.length > 8) {
-                if (attributes[0] === 'ID') {
+                if (attributes[0] === "ID") {
                   return undefined;
                 }
                 return {
@@ -140,9 +177,9 @@ export function init(): void {
                   // contract: attributes[7].replaceAll('"', ""),
                   selected: false,
                   isNewSelection: false,
-                  isMinorLeagueEligible: attributes[5].replaceAll('"', "") === "Min"
+                  isMinorLeagueEligible:
+                    attributes[5].replaceAll('"', "") === "Min",
                 };
-            
               }
               return undefined;
             });
@@ -170,33 +207,39 @@ export function init(): void {
               if (contract !== undefined) {
                 p.contract = contract.year;
                 p.contractDetails = contract;
-                p.selected = contract.year != '2025' && !contract.wasDropped;
+                p.selected = contract.year != "2025" && !contract.wasDropped;
                 p.isMinorLeagueEligible = contract.isMinorLeagueKeeper;
-                p.isCuttingPlayer = contract.wasDropped
-                p.wasDropped = contract.wasDropped
+                p.isCuttingPlayer = contract.wasDropped;
+                p.wasDropped = contract.wasDropped;
               } else {
-                p.contract = "1st"
-                Promise.all([draftPromise, draft2024Promise]).then((ignored) => {
-                  const pick = store.drafts.find(d => d.year === 2025).picks.find((pick) => pick.playerId === p.id);
+                p.contract = "1st";
+                Promise.all([draftPromise, draft2024Promise]).then(
+                  (ignored) => {
+                    const pick = store.drafts
+                      .find((d) => d.year === 2025)
+                      ?.picks?.find((pick) => pick.playerId === p.id);
 
-                  if (p.isMinorLeagueEligible && !pick) {
-                     const allYearsPicks = store.drafts.map(d1 => d1.picks).find((pick) => pick.playerId === p.id);
-                    p.isMinorLeagueEligible = allYearsPicks !== undefined;
-                  }
+                    if (p.isMinorLeagueEligible && !pick) {
+                      const allYearsPicks = store.drafts
+                        .map((d1) => d1.picks)
+                        ?.find((pick2) => pick2?.playerId === p.id);
+                      p.isMinorLeagueEligible = allYearsPicks !== undefined;
+                    }
 
-                  console.log(pick?.team, team.name);
+                    console.log(pick?.team, team.name);
 
-                  if (pick && pick.team === team.name) {
-                    p.draftPick = pick;
-                  } else {
-                    p.draftPick = {
-                      round: 26,
-                      pick: 12,
-                      year: 2025,
-                      playerId: p.id
+                    if (pick && pick.team === team.name) {
+                      p.draftPick = pick;
+                    } else {
+                      p.draftPick = {
+                        round: 26,
+                        pick: 12,
+                        year: 2025,
+                        playerId: p.id,
+                      };
                     }
                   }
-                });
+                );
               }
             });
 
@@ -210,16 +253,16 @@ export function init(): void {
     });
 }
 
-export function getTeamForId(id: Number) : Team {
+export function getTeamForId(id: Number): Team {
   return store.teams.find((t) => t.id === id);
 }
 
 export function setCurrentTeam(id) {
-    store.currentTeamId = id;
+  store.currentTeamId = id;
 }
 
-export function getCurrentTeam() : Team {
-    return getTeamForId(store.currentTeamId);
+export function getCurrentTeam(): Team {
+  return getTeamForId(store.currentTeamId);
 }
 
 export function getAllTeams(): Team[] {
